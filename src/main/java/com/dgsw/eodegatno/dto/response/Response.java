@@ -4,11 +4,11 @@ import lombok.Getter;
 import org.springframework.http.ResponseEntity;
 
 @Getter
-public abstract class Response {
+public class Response {
     private final int status;
     private final String message;
 
-    protected Response(int status, String message) {
+    public Response(int status, String message) {
         this.status = status;
         this.message = message;
     }
