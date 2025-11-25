@@ -66,7 +66,7 @@ public class ExcelBuilder {
         }
         return this;
     }
-    /** 날자 설정*/
+    /** 날짜 설정*/
     private String dateFormat(LocalDateTime dateTime) {
         return dateTime.format(formatter);
     }
