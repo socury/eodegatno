@@ -5,6 +5,9 @@ import com.dgsw.eodegatno.dto.request.UpdateItemRequest;
 import com.dgsw.eodegatno.dto.response.Response;
 import com.dgsw.eodegatno.service.ItemService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -47,5 +50,17 @@ public class ItemController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Response> deleteItem(@PathVariable Long id) {
         return itemService.deleteItem(id);
+    }
+
+    @GetMapping("/excel")
+    public ResponseEntity<ByteArrayResource> exportToExcel() {
+        byte[] excelData = itemService.exportItemsToExcel();
+        ByteArrayResource resource = new ByteArrayResource(excelData);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=lost_items.xlsx")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .contentLength(excelData.length)
+                .body(resource);
     }
 }
