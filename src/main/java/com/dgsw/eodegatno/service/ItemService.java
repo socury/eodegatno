@@ -10,6 +10,7 @@ import com.dgsw.eodegatno.dto.response.ErrorResponse;
 import com.dgsw.eodegatno.dto.response.ItemResponse;
 import com.dgsw.eodegatno.dto.response.Response;
 import com.dgsw.eodegatno.repository.ItemRepository;
+import com.dgsw.eodegatno.support.SMSBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -22,7 +23,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ItemService {
     private final ItemRepository itemRepository;
-
+    private final SMSBuilder smsBuilder;
     /** 분실물 신고 등록 */
     @Transactional
     public ResponseEntity<Response> createItem(CreateItemRequest request) {
@@ -53,6 +54,24 @@ public class ItemService {
                 .map(ItemResponse::from)
                 .toList();
         return new DataResponse<>(200, "발견 상태 목록을 조회했습니다.", items).toResponseEntity();
+    }
+
+    public ResponseEntity<Response> setFoundItem(Long id) {
+        Optional<ItemEntity> optItem = itemRepository.findById(id);
+        if (optItem.isEmpty())
+            return new ErrorResponse(404, "분실물을 찾을 수 없습니다.", "Item not found with id: " + id).toResponseEntity();
+
+        if (optItem.get().getStatus() == ItemStatus.FOUND)
+            return new ErrorResponse(400, "이미 누군가 당신의 물건을 찾으셨니다.", "Already found item").toResponseEntity();
+
+        smsBuilder
+            .to(optItem.get().getContactInfo())
+            .send("축하합니다! 누군가 당신의 "+ optItem.get().getItemName() + "를 발견하였습니다!");
+
+        ItemEntity item = optItem.get();
+        item.updateStatus(ItemStatus.FOUND);
+        itemRepository.save(item);
+        return new DataResponse<>(200, "분실물 정보가 수정되었습니다.", ItemResponse.from(item)).toResponseEntity();
     }
 
     /** 분실물 한개 가져오기 */

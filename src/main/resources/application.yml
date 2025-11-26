@@ -15,3 +15,8 @@ spring:
   h2:
     console:
       enabled: true
+
+coolsms:
+  api-key: CoolSMS API KEY
+  api-secret-key: API SECRET KEY
+  from: CoolSMS PHONE NUMBER

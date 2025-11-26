@@ -63,4 +63,8 @@ public class ItemEntity extends BaseEntity {
         this.contactInfo = request.getContactInfo();
         this.description = request.getDescription();
     }
+
+    public void updateStatus(ItemStatus status) {
+        this.status = status;
+    }
 }

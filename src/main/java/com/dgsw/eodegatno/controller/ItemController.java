@@ -37,6 +37,9 @@ public class ItemController {
         return itemService.getFoundItems();
     }
 
+    @PutMapping("/found")
+    public ResponseEntity<Response> updateFoundItem(@RequestParam Long id) { return itemService.setFoundItem(id); }
+
     @GetMapping("/{id}")
     public ResponseEntity<Response> getItemById(@PathVariable Long id) {
         return itemService.getItemById(id);
