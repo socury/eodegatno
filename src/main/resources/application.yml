@@ -17,6 +17,6 @@ spring:
       enabled: true
 
 coolsms:
-  api-key: CoolSMS API KEY
-  api-secret-key: API SECRET KEY
-  from: CoolSMS PHONE NUMBER
+  api-key: ${COOLSMS_API_KEY}
+  api-secret-key: ${API_SECRET_KEY}
+  from: ${COOLSMS_PHONE_NUMBER}
