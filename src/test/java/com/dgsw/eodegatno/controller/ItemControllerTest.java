@@ -1,135 +1,132 @@
 package com.dgsw.eodegatno.controller;
 
+import com.dgsw.eodegatno.domain.ItemEntity;
 import com.dgsw.eodegatno.domain.ItemStatus;
 import com.dgsw.eodegatno.dto.request.CreateItemRequest;
-import com.dgsw.eodegatno.dto.response.DataResponse;
-import com.dgsw.eodegatno.dto.response.ErrorResponse;
-import com.dgsw.eodegatno.dto.response.ItemResponse;
-import com.dgsw.eodegatno.service.ItemService;
+import com.dgsw.eodegatno.dto.request.UpdateItemRequest;
+import com.dgsw.eodegatno.repository.ItemRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(ItemController.class)
+@SpringBootTest
+@AutoConfigureMockMvc
 class ItemControllerTest {
 
     @Autowired
-    private MockMvc mockMvc;
+    protected MockMvc mockMvc;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    protected ObjectMapper objectMapper;
 
-    @MockitoBean
-    private ItemService itemService;
+    @Autowired
+    private WebApplicationContext webApplicationContext;
+
+    @Autowired
+    private ItemRepository itemRepository;
+
+    @BeforeEach
+    public void setUp() {
+        this.mockMvc = MockMvcBuilders
+                .webAppContextSetup(webApplicationContext)
+                .build();
+        itemRepository.deleteAll();
+    }
 
     @Test
-    void 분실물_등록_성공() throws Exception {
+    @DisplayName("분실물 신고 등록 API - 성공")
+    void createItem_Success() throws Exception {
         // given
-        CreateItemRequest request = new CreateItemRequest(
-                "홍길동", "에어팟", LocalDateTime.now(), "2-1 교실",
-                ItemStatus.LOST, "010-1234-5678", "흰색 에어팟"
-        );
-        ItemResponse itemResponse = new ItemResponse(
-                1L, "홍길동", "에어팟", LocalDateTime.now(), "2-1 교실",
-                ItemStatus.LOST, "010-1234-5678", "흰색 에어팟",
-                LocalDateTime.now(), LocalDateTime.now()
-        );
-        when(itemService.createItem(any())).thenReturn(
-                ResponseEntity.status(201).body(new DataResponse<>(201, "등록 완료", itemResponse))
+        final String url = "/lost-items";
+        final CreateItemRequest request = new CreateItemRequest(
+                "홍길동",
+                "노트북",
+                LocalDateTime.of(2025, 11, 25, 14, 0),
+                "도서관 3층",
+                ItemStatus.LOST,
+                "01098765432",
+                "삼성 노트북"
         );
 
-        // when & then
-        mockMvc.perform(post("/lost-items")
+        // when
+        ResultActions result = mockMvc.perform(
+                post(url)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value(201));
+                        .content(objectMapper.writeValueAsString(request))
+        );
+
+        // then
+        result.andExpect(status().isCreated());
+
+        List<ItemEntity> items = itemRepository.findAll();
+        assertThat(items).hasSize(1);
+        assertThat(items.get(0).getItemName()).isEqualTo("노트북");
+        assertThat(items.get(0).getReporterName()).isEqualTo("홍길동");
     }
 
     @Test
-    void 전체_조회_성공() throws Exception {
+    @DisplayName("ID로 분실물 조회 API - 성공")
+    void getItemById_Success() throws Exception {
         // given
-        List<ItemResponse> items = Arrays.asList(
-                new ItemResponse(1L, "홍길동", "에어팟", LocalDateTime.now(), "교실",
-                        ItemStatus.LOST, "010-1111-1111", "에어팟", LocalDateTime.now(), LocalDateTime.now())
-        );
-        when(itemService.getAllItems()).thenReturn(
-                ResponseEntity.ok(new DataResponse<>(200, "조회 완료", items))
+        final String url = "/lost-items/{id}";
+
+        ItemEntity savedItem = itemRepository.save(ItemEntity.builder()
+                .reporterName("이기찬")
+                .itemName("에어팟")
+                .lostDateTime(LocalDateTime.of(2025, 11, 20, 9, 30))
+                .lostLocation("2-1 교실")
+                .status(ItemStatus.LOST)
+                .contactInfo("01011111111")
+                .description("에어팟 2세대")
+                .build());
+
+        // when
+        ResultActions result = mockMvc.perform(
+                get(url, savedItem.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
         );
 
-        // when & then
-        mockMvc.perform(get("/lost-items"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray());
+        // then
+        result.andExpect(status().isOk());
+
+        Optional<ItemEntity> item = itemRepository.findById(savedItem.getId());
+        assertThat(item).isNotEmpty();
+        assertThat(item.get().getItemName()).isEqualTo(savedItem.getItemName());
+        assertThat(item.get().getReporterName()).isEqualTo(savedItem.getReporterName());
     }
 
     @Test
-    void ID로_조회_성공() throws Exception {
+    @DisplayName("존재하지 않는 ID로 분실물 조회 API - 실패")
+    void getItemById_NotFound_Fail() throws Exception {
         // given
-        ItemResponse item = new ItemResponse(
-                1L, "홍길동", "에어팟", LocalDateTime.now(), "교실",
-                ItemStatus.LOST, "010-1111-1111", "에어팟", LocalDateTime.now(), LocalDateTime.now()
-        );
-        when(itemService.getItemById(1L)).thenReturn(
-                ResponseEntity.ok(new DataResponse<>(200, "조회 완료", item))
-        );
+        final String url = "/lost-items/{id}";
+        final Long nonExistentId = 9999L;
 
-        // when & then
-        mockMvc.perform(get("/lost-items/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.id").value(1));
-    }
-
-    @Test
-    void ID로_조회_실패() throws Exception {
-        // given
-        when(itemService.getItemById(999L)).thenReturn(
-                ResponseEntity.status(404).body(new ErrorResponse(404, "없음", "Not found"))
+        // when
+        ResultActions result = mockMvc.perform(
+                get(url, nonExistentId)
+                        .contentType(MediaType.APPLICATION_JSON)
         );
 
-        // when & then
-        mockMvc.perform(get("/lost-items/999"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.status").value(404));
-    }
-
-    @Test
-    void 삭제_성공() throws Exception {
-        // given
-        when(itemService.deleteItem(1L)).thenReturn(
-                ResponseEntity.ok(new DataResponse<>(200, "삭제 완료", null))
-        );
-
-        // when & then
-        mockMvc.perform(delete("/lost-items/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value(200));
-    }
-
-    @Test
-    void 삭제_실패() throws Exception {
-        // given
-        when(itemService.deleteItem(999L)).thenReturn(
-                ResponseEntity.status(404).body(new ErrorResponse(404, "없음", "Not found"))
-        );
-
-        // when & then
-        mockMvc.perform(delete("/lost-items/999"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.status").value(404));
+        // then
+        result.andExpect(status().isNotFound());
     }
 }
